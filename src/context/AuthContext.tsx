@@ -1,21 +1,21 @@
-// # Session & User State
-
 import {
-    createUserWithEmailAndPassword,
-    User as FirebaseUser,
-    onAuthStateChanged,
-    sendPasswordResetEmail,
-    signInWithEmailAndPassword,
-    signOut,
+  createUserWithEmailAndPassword,
+  User as FirebaseUser,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    setDoc,
-    where,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
 } from "firebase/firestore";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "../services/firebase";
@@ -40,6 +40,7 @@ interface AuthContextType {
     displayName: string,
     password: string,
   ) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -57,11 +58,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Fetch extended user metadata profile from Firestore
         const docRef = doc(db, "users", firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setProfile(docSnap.data() as UserProfile);
+        } else {
+          // If a Google user logs in for the first time, initialize their Firestore profile
+          const initialProfile: UserProfile = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || "",
+            username:
+              (firebaseUser.email?.split("@")[0] || "user") +
+              Math.floor(Math.random() * 1000),
+            displayName: firebaseUser.displayName || "Google User",
+            photoURL: firebaseUser.photoURL || null,
+            createdAt: new Date().toISOString(),
+          };
+          await setDoc(docRef, initialProfile);
+          setProfile(initialProfile);
         }
       } else {
         setProfile(null);
@@ -74,20 +88,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (emailOrUsername: string, password: string) => {
     let email = emailOrUsername.trim();
-
-    // If input is not a plain email format, run a direct identifier query on Firestore usernames
     if (!email.includes("@")) {
       const q = query(
         collection(db, "users"),
         where("username", "==", email.toLowerCase()),
       );
       const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        throw new Error("Username not found");
-      }
+      if (querySnapshot.empty) throw new Error("Username not found");
       email = querySnapshot.docs[0].data().email;
     }
-
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -98,16 +107,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
   ) => {
     const cleanUsername = username.toLowerCase().trim();
-
-    // Check globally unique usernames
     const q = query(
       collection(db, "users"),
       where("username", "==", cleanUsername),
     );
     const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      throw new Error("Username is already taken");
-    }
+    if (!querySnapshot.empty) throw new Error("Username is already taken");
 
     const userCredential = await createUserWithEmailAndPassword(
       auth,
@@ -125,9 +130,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: new Date().toISOString(),
     };
 
-    // Store profile document to Firestore mapping configuration database
     await setDoc(doc(db, "users", uid), newProfile);
     setProfile(newProfile);
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    const credential = GoogleAuthProvider.credential(idToken);
+    await signInWithCredential(auth, credential);
   };
 
   const logout = async () => {
@@ -140,7 +149,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, login, register, logout, resetPassword }}
+      value={{
+        user,
+        profile,
+        loading,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+        resetPassword,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,50 +1,310 @@
-# Welcome to your Expo app 👋
+# 💬 My Chat App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern real-time chat application built with **React Native**, **Expo**, **Expo Router**, **TypeScript**, **Firebase**, **Socket.IO**, and **WebRTC**.
 
-## Get started
+The app provides secure authentication, one-to-one messaging, voice/video calling, user profiles, and a modular architecture for scalability.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## ✨ Features
 
-2. Start the app
+- 🔐 User Authentication
+  - Login
+  - Register
+  - Forgot Password
 
-   ```bash
-   npx expo start
-   ```
+- 💬 Real-time Chat
+  - One-to-one conversations
+  - Chat list
+  - Message bubbles
+  - Chat information
 
-In the output, you'll find options to open the app in a
+- 📞 Voice & Video Calling
+  - WebRTC integration
+  - Incoming call screen
+  - Active call room
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- 👤 User Profile
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- 🔍 Search users and chats
 
-## Get a fresh project
+- 🎨 Theme Support
+  - Light/Dark mode
+  - Reusable UI components
 
-When you're ready, run:
+- ⚡ Firebase Authentication & Database
+
+- 🔌 Real-time Socket Communication
+
+---
+
+# 📁 Project Structure
+
+```
+my-chat-app/
+├── app/
+│   ├── (auth)/
+│   │   ├── login.tsx
+│   │   ├── register.tsx
+│   │   └── forgot-password.tsx
+│   │
+│   ├── (app)/
+│   │   ├── (tabs)/
+│   │   │   ├── index.tsx
+│   │   │   └── profile.tsx
+│   │   │
+│   │   ├── chat/
+│   │   │   ├── [id].tsx
+│   │   │   └── info.tsx
+│   │   │
+│   │   ├── call/
+│   │   │   ├── room.tsx
+│   │   │   └── incoming.tsx
+│   │   │
+│   │   └── search.tsx
+│   │
+│   ├── _layout.tsx
+│   └── +not-found.tsx
+│
+├── src/
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Button.tsx
+│   │   │   ├── Input.tsx
+│   │   │   ├── Avatar.tsx
+│   │   │   └── Loader.tsx
+│   │   │
+│   │   └── chat/
+│   │       ├── ChatRow.tsx
+│   │       └── MessageBubble.tsx
+│   │
+│   ├── context/
+│   │   ├── AuthContext.tsx
+│   │   └── ThemeContext.tsx
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   ├── useTheme.ts
+│   │   └── useWebRTC.ts
+│   │
+│   ├── services/
+│   │   ├── firebase.ts
+│   │   └── socket.ts
+│   │
+│   ├── theme/
+│   │   └── colors.ts
+│   │
+│   └── utils/
+│       └── helpers.ts
+│
+├── app.json
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+# 📂 Folder Overview
+
+## `app/`
+
+Contains all application screens using **Expo Router** and file-based routing.
+
+### `(auth)/`
+
+Authentication screens.
+
+- Login
+- Register
+- Forgot Password
+
+### `(app)/`
+
+Protected routes available after authentication.
+
+#### `(tabs)/`
+
+Bottom tab navigation.
+
+- Home
+- Profile
+
+#### `chat/`
+
+Chat screens.
+
+- Individual conversation
+- Chat information
+
+#### `call/`
+
+Calling screens.
+
+- Active call room
+- Incoming call
+
+#### Other
+
+- Search users/chats
+
+---
+
+## `src/components`
+
+Reusable UI components.
+
+### Common Components
+
+- Button
+- Input
+- Avatar
+- Loader
+
+### Chat Components
+
+- ChatRow
+- MessageBubble
+
+---
+
+## `src/context`
+
+Global state management.
+
+- Authentication Context
+- Theme Context
+
+---
+
+## `src/hooks`
+
+Custom React hooks.
+
+- useAuth
+- useTheme
+- useWebRTC
+
+---
+
+## `src/services`
+
+Application services.
+
+- Firebase
+- Socket.IO
+
+---
+
+## `src/theme`
+
+Theme colors and constants.
+
+---
+
+## `src/utils`
+
+Shared helper functions.
+
+---
+
+# 🛠 Tech Stack
+
+- React Native
+- Expo
+- Expo Router
+- TypeScript
+- Firebase
+- Socket.IO
+- WebRTC
+- React Context API
+
+---
+
+# 🚀 Getting Started
+
+## 1. Install dependencies
+
+```bash
+npm install
+```
+
+---
+
+## 2. Start the app
+
+```bash
+npx expo start
+```
+
+The Expo CLI allows you to run the application using:
+
+- 📱 Expo Go
+- 🤖 Android Emulator
+- 🍎 iOS Simulator
+- 🛠 Development Build
+- 🌐 Web Browser
+
+---
+
+## Development
+
+Start building by editing files inside the **app/** directory.
+
+This project uses **Expo Router**, which provides file-based routing for navigation.
+
+---
+
+## Reset the Project
+
+To reset the project back to a clean Expo Router structure:
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This moves the starter code into the **app-example** directory and creates a fresh **app** directory.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+# 📜 Available Scripts
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm start          # Start Expo
+npm run android    # Android
+npm run ios        # iOS
+npm run web        # Web
+```
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+# 📚 Learn More
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Expo Documentation: https://docs.expo.dev
+- Expo Router Documentation: https://docs.expo.dev/router/introduction
+- Expo Tutorial: https://docs.expo.dev/tutorial/introduction
+
+---
+
+# 🤝 Community
+
+- Expo GitHub: https://github.com/expo/expo
+- Expo Discord: https://chat.expo.dev
+
+---
+
+# 🚀 Future Improvements
+
+- Group chats
+- Push notifications
+- Read receipts
+- Typing indicators
+- Media sharing
+- Message reactions
+- Online/offline status
+- End-to-end encryption
+
+---
+
+# 📄 License
+
+This project is licensed under the **MIT License**.

@@ -1,10 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
-    Auth,
-    getAuth,
-    getReactNativePersistence,
-    initializeAuth,
+  Auth,
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -25,22 +25,24 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // Initialize Auth conditionally based on the platform
 let auth: Auth;
 
-if (getApps().length === 0) {
-  if (Platform.OS === "web") {
-    // Dynamically require to bypass the strict React Native compiler type check
-    const { browserSessionPersistence } = require("firebase/auth") as any;
-
+if (getApps().length > 0) {
+  try {
+    auth = getAuth(app);
+  } catch {
     auth = initializeAuth(app, {
-      persistence: browserSessionPersistence,
-    });
-  } else {
-    // If running on iOS/Android, safely pass AsyncStorage persistence
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
+      persistence:
+        Platform.OS === "web"
+          ? undefined // Defaults to normal browser persistence on Web
+          : getReactNativePersistence(AsyncStorage),
     });
   }
 } else {
-  auth = getAuth(app);
+  auth = initializeAuth(app, {
+    persistence:
+      Platform.OS === "web"
+        ? undefined
+        : getReactNativePersistence(AsyncStorage),
+  });
 }
 
 const db = getFirestore(app);
