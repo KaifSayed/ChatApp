@@ -4,7 +4,10 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import React, { useEffect } from "react";
 import { Loader } from "../src/components/common/Loader";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
+import { CallProvider } from "../src/context/CallContext";
+import { ChatProvider } from "../src/context/ChatContext";
 import { ThemeProvider } from "../src/context/ThemeContext";
+import { registerForPushNotificationsAsync } from "../src/services/notifications";
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -31,10 +34,20 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    registerForPushNotificationsAsync().then((token) =>
+      console.log("Push token:", token),
+    );
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>
-        <RootLayoutNav />
+        <ChatProvider>
+          <CallProvider>
+            <RootLayoutNav />
+          </CallProvider>
+        </ChatProvider>
       </AuthProvider>
     </ThemeProvider>
   );
