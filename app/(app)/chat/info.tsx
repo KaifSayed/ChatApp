@@ -133,7 +133,7 @@ export default function ChatInfoScreen() {
         router.push(`/(app)/chat/${existingChat.id}`);
       } else {
         // Create new direct chat and navigate
-        const newChatId = await createChat(participant.uid);
+        const newChatId = await createPrivateChat(participant.uid);
         router.push(`/(app)/chat/${newChatId}`);
       }
     } catch (error) {
