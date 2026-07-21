@@ -18,10 +18,14 @@ import { useAuth } from "./AuthContext";
 
 interface CallContextType {
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
+  remoteStreams: Map<string, MediaStream>; // userId -> MediaStream
   isCalling: boolean;
-  incomingCall: any;
-  startCall: (targetUserId: string, isVideo?: boolean) => Promise<void>;
+  incomingCall: any; // Used for 1on1 offers or group call invites
+  startCall: (
+    targetUserIdOrRoomId: string,
+    isVideo?: boolean,
+    isGroup?: boolean,
+  ) => Promise<void>;
   answerCall: () => Promise<void>;
   endCall: (emit?: boolean) => void;
   toggleMute: () => void;
@@ -29,6 +33,7 @@ interface CallContextType {
   switchCamera: () => void;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  isGroupCall: boolean;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -47,14 +52,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const router = useRouter();
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(
+    new Map(),
+  );
   const [isCalling, setIsCalling] = useState(false);
   const [incomingCall, setIncomingCall] = useState<any>(null);
-
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isGroupCall, setIsGroupCall] = useState(false);
 
-  const pc = useRef<any>(null);
+  const peerConnections = useRef<Map<string, any>>(new Map()); // targetUserId -> RTCPeerConnection
+  const currentRoomId = useRef<string | null>(null);
   const currentCallTarget = useRef<string | null>(null);
 
   useEffect(() => {
@@ -65,17 +73,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
     socket.on("offer", async (data) => {
       console.log("Received offer from", data.callerId);
-      setIncomingCall(data);
-      router.push(`/(app)/call/incoming?callerId=${data.callerId}`);
+      if (isCalling) {
+        if (currentRoomId.current && data.roomId === currentRoomId.current) {
+          handleReceivedOffer(data);
+        } else {
+          console.log("Ignored offer because already in a call.");
+        }
+      } else {
+        setIncomingCall(data);
+        router.push(`/(app)/call/incoming?callerId=${data.callerId}`);
+      }
     });
 
     socket.on("answer", async (data) => {
       console.log("Received answer from", data.answererId);
-      if (pc.current) {
+      const pc = peerConnections.current.get(data.answererId);
+      if (pc) {
         try {
-          await pc.current.setRemoteDescription(
-            new RTCSessionDescription(data.answer),
-          );
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         } catch (e) {
           console.error("Error setting remote description on answer", e);
         }
@@ -83,34 +98,70 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     socket.on("ice-candidate", async (data) => {
-      if (pc.current && data.candidate) {
+      const pc = peerConnections.current.get(data.senderId);
+      if (pc && data.candidate) {
         try {
-          await pc.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
           console.error("Error adding ICE candidate", e);
         }
       }
     });
 
-    socket.on("call-ended", () => {
-      endCall(false);
+    socket.on("user-joined", async (data) => {
+      console.log("User joined room:", data.userId);
+      if (localStream) {
+        initiateCallTo(data.userId, localStream, currentRoomId.current!);
+      }
+    });
+
+    socket.on("user-left", (data) => {
+      console.log("User left room:", data.userId);
+      removePeerConnection(data.userId);
+    });
+
+    socket.on("call-ended", (data) => {
+      if (!isGroupCall || !currentRoomId.current) {
+        endCall(false);
+      } else if (data.enderId) {
+        removePeerConnection(data.enderId);
+      }
     });
 
     return () => {
       socket.off("offer");
       socket.off("answer");
       socket.off("ice-candidate");
+      socket.off("user-joined");
+      socket.off("user-left");
       socket.off("call-ended");
     };
-  }, [user]);
+  }, [user, isCalling, localStream]);
 
-  // Robust media acquisition with audio fallback
+  const addRemoteStream = (userId: string, stream: MediaStream) => {
+    setRemoteStreams((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(userId, stream);
+      return newMap;
+    });
+  };
+
+  const removePeerConnection = (userId: string) => {
+    const pc = peerConnections.current.get(userId);
+    if (pc) {
+      pc.close();
+      peerConnections.current.delete(userId);
+    }
+    setRemoteStreams((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(userId);
+      return newMap;
+    });
+  };
+
   const setupMedia = async (isVideo: boolean = true) => {
     if (typeof window === "undefined" && Platform.OS === "web") return null;
-
     let stream: MediaStream | null = null;
-
-    // Try acquiring requested constraints (Audio + Optional Video)
     if (isVideo) {
       try {
         stream = await mediaDevices.getUserMedia({
@@ -123,158 +174,177 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         setIsVideoEnabled(true);
       } catch (err) {
-        console.warn(
-          "Video device acquisition failed, falling back to basic audio...",
-          err,
-        );
+        console.warn("Video failed, fallback to audio", err);
       }
     }
-
-    // Fallback: If video failed or audio-only was requested, acquire audio stream
     if (!stream) {
       try {
         stream = await mediaDevices.getUserMedia({ audio: true, video: false });
         setIsVideoEnabled(false);
       } catch (err) {
-        console.error("Critical: Failed to acquire audio stream:", err);
+        console.error("Critical: Failed to acquire audio", err);
         return null;
       }
     }
-
     setLocalStream(stream);
     setIsMuted(false);
     return stream;
   };
 
-  const setupPeerConnection = () => {
-    const peerConnection = new RTCPeerConnection(configuration);
-    const pcInstance = peerConnection as any;
+  const createPeerConnection = (
+    targetUserId: string,
+    stream: MediaStream,
+    roomId?: string,
+  ) => {
+    const pc = new RTCPeerConnection(configuration);
 
-    pcInstance.onicecandidate = (event: any) => {
-      if (event.candidate && currentCallTarget.current) {
+    pc.onicecandidate = (event: any) => {
+      if (event.candidate) {
         const socket = getSocket();
         socket?.emit("ice-candidate", {
-          targetUserId: currentCallTarget.current,
+          targetUserId,
           candidate: event.candidate,
+          roomId,
         });
       }
     };
 
-    pcInstance.ontrack = (event: any) => {
-      console.log("Received remote track:", event.streams);
+    pc.ontrack = (event: any) => {
       if (event.streams && event.streams[0]) {
-        setRemoteStream(event.streams[0]);
+        addRemoteStream(targetUserId, event.streams[0]);
       }
     };
 
-    pc.current = peerConnection;
-    return peerConnection;
-  };
-
-  const startCall = async (targetUserId: string, isVideo: boolean = true) => {
-    if (!user) return;
-
-    currentCallTarget.current = targetUserId;
-    setIsCalling(true);
-
-    const stream = await setupMedia(isVideo);
-    const peerConnection = setupPeerConnection();
-
     if (stream) {
-      stream.getTracks().forEach((track: any) => {
-        peerConnection.addTrack(track, stream);
-      });
+      stream.getTracks().forEach((track: any) => pc.addTrack(track, stream));
     }
 
-    try {
-      const offer = await peerConnection.createOffer({});
-      await peerConnection.setLocalDescription(offer);
+    peerConnections.current.set(targetUserId, pc);
+    return pc;
+  };
 
+  const initiateCallTo = async (
+    targetUserId: string,
+    stream: MediaStream,
+    roomId?: string,
+  ) => {
+    const pc = createPeerConnection(targetUserId, stream, roomId);
+    try {
+      const offer = await pc.createOffer({});
+      await pc.setLocalDescription(offer);
       const socket = getSocket();
       socket?.emit("offer", {
         targetUserId,
         offer,
+        roomId,
         isVideo: isVideoEnabled,
       });
+    } catch (e) {
+      console.error("Error creating offer", e);
+    }
+  };
 
-      router.push("/(app)/call/active");
-    } catch (err) {
-      console.error("Failed to start call", err);
-      endCall();
+  const startCall = async (
+    targetId: string,
+    isVideo: boolean = true,
+    isGroup: boolean = false,
+  ) => {
+    if (!user) return;
+
+    setIsCalling(true);
+    setIsGroupCall(isGroup);
+
+    const stream = await setupMedia(isVideo);
+    if (!stream) {
+      setIsCalling(false);
+      return;
+    }
+
+    const socket = getSocket();
+
+    if (isGroup) {
+      currentRoomId.current = targetId; // targetId is chatId
+      socket?.emit("join-room", targetId);
+    } else {
+      currentCallTarget.current = targetId;
+      initiateCallTo(targetId, stream);
+    }
+
+    router.push("/(app)/call/active");
+  };
+
+  const handleReceivedOffer = async (data: any) => {
+    const { callerId, offer, roomId } = data;
+    let stream = localStream;
+    if (!stream) {
+      stream = await setupMedia(data.isVideo !== false);
+    }
+
+    if (!stream) return;
+
+    const pc = createPeerConnection(callerId, stream, roomId);
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      const socket = getSocket();
+      socket?.emit("answer", { targetUserId: callerId, answer, roomId });
+    } catch (e) {
+      console.error("Error handling offer", e);
     }
   };
 
   const answerCall = async () => {
     if (!incomingCall || !user) return;
 
-    currentCallTarget.current = incomingCall.callerId;
+    const { callerId, roomId, isVideo } = incomingCall;
     setIsCalling(true);
+    setIsGroupCall(!!roomId);
 
-    const isVideoCall = incomingCall.isVideo !== false;
-    const stream = await setupMedia(isVideoCall);
-    const peerConnection = setupPeerConnection();
-
-    if (stream) {
-      stream.getTracks().forEach((track: any) => {
-        peerConnection.addTrack(track, stream);
-      });
-    }
-
-    try {
-      await peerConnection.setRemoteDescription(
-        new RTCSessionDescription(incomingCall.offer),
-      );
-
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-
+    if (roomId) {
+      currentRoomId.current = roomId;
       const socket = getSocket();
-      socket?.emit("answer", {
-        targetUserId: incomingCall.callerId,
-        answer,
-      });
-
-      setIncomingCall(null);
-      router.push("/(app)/call/active");
-    } catch (err) {
-      console.error("Failed to answer call", err);
-      endCall();
+      socket?.emit("join-room", roomId);
+    } else {
+      currentCallTarget.current = callerId;
     }
+
+    await handleReceivedOffer(incomingCall);
+    setIncomingCall(null);
+    router.push("/(app)/call/active");
   };
 
   const endCall = (emit: boolean = true) => {
-    if (emit && currentCallTarget.current) {
-      const socket = getSocket();
-      socket?.emit("end-call", { targetUserId: currentCallTarget.current });
+    const socket = getSocket();
+
+    if (emit) {
+      if (isGroupCall && currentRoomId.current) {
+        socket?.emit("leave-room", currentRoomId.current);
+      } else if (currentCallTarget.current) {
+        socket?.emit("end-call", { targetUserId: currentCallTarget.current });
+      }
     }
 
-    if (pc.current) {
-      try {
-        pc.current.close();
-      } catch (e) {
-        console.log("Error closing PeerConnection", e);
-      }
-      pc.current = null;
-    }
+    peerConnections.current.forEach((pc) => pc.close());
+    peerConnections.current.clear();
 
     if (localStream) {
       try {
         localStream.getTracks().forEach((t: any) => t.stop());
-        // Some WebRTC implementations (e.g., react-native-webrtc) expose a release()
-        // method on the stream. Guard with a runtime/type cast to avoid TS errors.
         if (typeof (localStream as any).release === "function") {
           (localStream as any).release();
         }
-      } catch (e) {
-        console.log("Error releasing tracks", e);
-      }
+      } catch (e) {}
     }
 
     setLocalStream(null);
-    setRemoteStream(null);
+    setRemoteStreams(new Map());
     setIsCalling(false);
     setIncomingCall(null);
     currentCallTarget.current = null;
+    currentRoomId.current = null;
+    setIsGroupCall(false);
 
     if (router.canGoBack()) {
       router.back();
@@ -320,7 +390,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     <CallContext.Provider
       value={{
         localStream,
-        remoteStream,
+        remoteStreams,
         isCalling,
         incomingCall,
         startCall,
@@ -331,6 +401,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         switchCamera,
         isMuted,
         isVideoEnabled,
+        isGroupCall,
       }}
     >
       {children}

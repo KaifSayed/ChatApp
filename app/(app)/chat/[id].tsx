@@ -25,12 +25,13 @@ export default function ActiveChatScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { chats, sendMessage, markAsRead } = useChat();
+  const { chats, sendMessage, markAsRead, updateTypingStatus } = useChat();
   const { startCall } = useCall();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const scrollViewRef = useRef<ScrollView>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chatId = id as string;
   const chat = chats.find((c) => c.id === chatId);
@@ -64,10 +65,33 @@ export default function ActiveChatScreen() {
     if (!inputText.trim()) return;
     const text = inputText.trim();
     setInputText("");
+
+    // Clear typing indicator immediately upon send
+    updateTypingStatus(chatId, false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
     try {
       await sendMessage(chatId, text);
     } catch (error) {
       console.error("Failed to send message:", error);
+    }
+  };
+
+  const handleTextChange = (text: string) => {
+    setInputText(text);
+
+    if (text.trim().length > 0) {
+      updateTypingStatus(chatId, true);
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        updateTypingStatus(chatId, false);
+      }, 3000);
+    } else {
+      updateTypingStatus(chatId, false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
   };
 
@@ -87,13 +111,27 @@ export default function ActiveChatScreen() {
   };
 
   const handleStartCall = (isVideo: boolean) => {
-    const targetId = chat?.participants?.find((p) => p !== user?.uid);
-    if (targetId) {
-      startCall(targetId, isVideo);
+    if (chat?.type === "group") {
+      startCall(chatId, isVideo, true);
     } else {
-      console.warn("No valid target user found for call.");
+      const targetId = chat?.participants?.find((p) => p !== user?.uid);
+      if (targetId) {
+        startCall(targetId, isVideo, false);
+      } else {
+        console.warn("No valid target user found for call.");
+      }
     }
   };
+
+  const getTypingUsers = () => {
+    if (!chat?.typing) return [];
+    return Object.keys(chat.typing).filter((uid) => {
+      if (uid === user?.uid) return false;
+      return !!chat.typing![uid];
+    });
+  };
+
+  const typingUsers = getTypingUsers();
 
   return (
     <SafeAreaView
@@ -138,7 +176,7 @@ export default function ActiveChatScreen() {
             >
               <Ionicons
                 name="videocam-outline"
-                size={24}
+                size={26}
                 color={theme.primary}
               />
             </TouchableOpacity>
@@ -146,7 +184,7 @@ export default function ActiveChatScreen() {
               style={styles.actionBtn}
               onPress={() => handleStartCall(false)}
             >
-              <Ionicons name="call-outline" size={22} color={theme.primary} />
+              <Ionicons name="call-outline" size={24} color={theme.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -173,7 +211,10 @@ export default function ActiveChatScreen() {
                       ]
                     : [
                         styles.messageBubbleOther,
-                        { backgroundColor: theme.surface },
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                        },
                       ],
                 ]}
               >
@@ -207,6 +248,28 @@ export default function ActiveChatScreen() {
           })}
         </ScrollView>
 
+        {/* Typing Indicator */}
+        {typingUsers.length > 0 && (
+          <View
+            style={[
+              styles.typingIndicator,
+              { backgroundColor: theme.background },
+            ]}
+          >
+            <Text
+              style={{
+                color: theme.placeholder,
+                fontStyle: "italic",
+                fontSize: 12,
+              }}
+            >
+              {typingUsers.length === 1
+                ? "Someone is typing..."
+                : "Multiple people are typing..."}
+            </Text>
+          </View>
+        )}
+
         {/* Input Area */}
         <View
           style={[
@@ -215,20 +278,24 @@ export default function ActiveChatScreen() {
           ]}
         >
           <TouchableOpacity style={styles.attachBtn}>
-            <Ionicons name="add" size={28} color={theme.primary} />
+            <Ionicons name="add" size={28} color={theme.placeholder} />
           </TouchableOpacity>
-          <TextInput
+          <View
             style={[
-              styles.input,
-              { backgroundColor: theme.background, color: theme.text },
+              styles.inputWrapper,
+              { backgroundColor: theme.background, borderColor: theme.border },
             ]}
-            placeholder="Type a message..."
-            placeholderTextColor={theme.placeholder}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
-          />
+          >
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              placeholder="Type a message..."
+              placeholderTextColor={theme.placeholder}
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={1000}
+            />
+          </View>
           <TouchableOpacity
             style={[
               styles.sendBtn,
@@ -241,7 +308,12 @@ export default function ActiveChatScreen() {
             onPress={handleSend}
             disabled={!inputText.trim()}
           >
-            <Ionicons name="send" size={18} color="#fff" />
+            <Ionicons
+              name="send"
+              size={16}
+              color="#fff"
+              style={{ marginLeft: 2 }}
+            />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -256,7 +328,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   backBtn: {
@@ -270,7 +342,7 @@ const styles = StyleSheet.create({
   },
   headerName: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     marginLeft: 12,
     flex: 1,
   },
@@ -279,8 +351,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtn: {
-    padding: 10,
-    marginLeft: 4,
+    padding: 8,
+    marginLeft: 8,
   },
   messageList: {
     padding: 16,
@@ -288,8 +360,8 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: "80%",
-    padding: 12,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 20,
     marginBottom: 8,
   },
   messageBubbleMe: {
@@ -299,6 +371,7 @@ const styles = StyleSheet.create({
   messageBubbleOther: {
     alignSelf: "flex-start",
     borderBottomLeftRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   messageText: {
     fontSize: 16,
@@ -307,32 +380,41 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 11,
     alignSelf: "flex-end",
-    marginTop: 4,
+    marginTop: 6,
+  },
+  typingIndicator: {
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     padding: 12,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   attachBtn: {
     padding: 8,
     marginRight: 4,
+    marginBottom: 2,
+  },
+  inputWrapper: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    minHeight: 48,
+    maxHeight: 120,
+    justifyContent: "center",
   },
   input: {
-    flex: 1,
-    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    maxHeight: 100,
-    minHeight: 40,
+    paddingTop: 12,
+    paddingBottom: 12,
     fontSize: 16,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 12,

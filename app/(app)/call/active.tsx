@@ -56,37 +56,93 @@ const StreamView = ({
 export default function ActiveCallScreen() {
   const {
     localStream,
-    remoteStream,
+    remoteStreams,
     endCall,
     toggleMute,
     toggleVideo,
     switchCamera,
     isMuted,
     isVideoEnabled,
+    isGroupCall,
   } = useCall();
+
+  const remoteStreamEntries = Array.from(remoteStreams.entries());
+  const participantsCount = remoteStreamEntries.length + 1; // +1 for local
+
+  // Grid calculations
+  const isGrid = isGroupCall && remoteStreamEntries.length > 0;
+
+  const getGridStyle = (index: number) => {
+    if (!isGrid) return styles.remoteVideoFullscreen;
+
+    const total = participantsCount;
+    if (total === 2) {
+      return { width: "100%", height: "50%" };
+    } else if (total === 3 || total === 4) {
+      return { width: "50%", height: "50%" };
+    } else {
+      return { width: "33.33%", height: "33.33%" };
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Remote Video / Audio View */}
-      {remoteStream ? (
-        <StreamView
-          stream={remoteStream}
-          style={styles.remoteVideo}
-          objectFit="cover"
-        />
+      {/* Remote Videos */}
+      {remoteStreamEntries.length > 0 ? (
+        isGrid ? (
+          <View style={styles.gridContainer}>
+            {remoteStreamEntries.map(([userId, stream], index) => (
+              <View
+                key={userId}
+                style={[styles.gridCell, getGridStyle(index) as any]}
+              >
+                <StreamView
+                  stream={stream}
+                  style={styles.videoStream}
+                  objectFit="cover"
+                />
+              </View>
+            ))}
+            {/* Local video in grid */}
+            {localStream && isVideoEnabled && (
+              <View
+                style={[
+                  styles.gridCell,
+                  getGridStyle(remoteStreamEntries.length) as any,
+                ]}
+              >
+                <StreamView
+                  stream={localStream}
+                  style={styles.videoStream}
+                  objectFit="cover"
+                />
+              </View>
+            )}
+          </View>
+        ) : (
+          <StreamView
+            stream={remoteStreamEntries[0][1]}
+            style={styles.remoteVideoFullscreen}
+            objectFit="cover"
+          />
+        )
       ) : (
         <View style={styles.remoteVideoPlaceholder}>
-          <Ionicons name="person-circle-outline" size={100} color="#666" />
+          <Ionicons
+            name={isGroupCall ? "people-outline" : "person-circle-outline"}
+            size={100}
+            color="#666"
+          />
           <Text style={styles.connectingText}>Connecting call...</Text>
         </View>
       )}
 
-      {/* Local Video Overlay */}
-      {localStream && isVideoEnabled && (
+      {/* Local Video Overlay (for 1on1 calls) */}
+      {!isGrid && localStream && isVideoEnabled && (
         <View style={styles.localVideoContainer}>
           <StreamView
             stream={localStream}
-            style={styles.localVideo}
+            style={styles.videoStream}
             objectFit="cover"
           />
         </View>
@@ -144,8 +200,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
-  remoteVideo: {
+  remoteVideoFullscreen: {
     flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  gridContainer: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingBottom: 100, // Space for controls
+  },
+  gridCell: {
+    borderWidth: 1,
+    borderColor: "#000",
+  },
+  videoStream: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
   },
   remoteVideoPlaceholder: {
     flex: 1,
@@ -176,9 +249,6 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
     }),
-  },
-  localVideo: {
-    flex: 1,
   },
   controlsContainer: {
     position: "absolute",

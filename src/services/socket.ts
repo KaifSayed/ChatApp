@@ -1,10 +1,10 @@
-import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
+import { io, Socket } from "socket.io-client";
 
 // In development, use your local IP address for the Android emulator or physical device.
 // For Web, localhost is fine. Adjust the IP address to match your development machine's local IP.
 const SERVER_URL =
-  Platform.OS === "web" ? "http://localhost:3000" : "http://10.0.2.2:3000";
+  Platform.OS === "web" ? "http://localhost:3000" : "http://192.168.1.229:3000";
 
 let socket: Socket | null = null;
 

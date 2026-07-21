@@ -37,6 +37,7 @@ export interface Chat {
   name?: string; // For groups
   groupImage?: string; // For groups
   unreadCount?: Record<string, number>;
+  typing?: Record<string, any>;
 }
 
 interface ChatContextType {
@@ -46,6 +47,7 @@ interface ChatContextType {
   createGroupChat: (name: string, participantIds: string[]) => Promise<string>;
   sendMessage: (chatId: string, text: string, image?: string) => Promise<void>;
   markAsRead: (chatId: string) => Promise<void>;
+  updateTypingStatus: (chatId: string, isTyping: boolean) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -173,6 +175,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  const updateTypingStatus = async (chatId: string, isTyping: boolean) => {
+    if (!user) return;
+    
+    const chatRef = doc(db, "chats", chatId);
+    await updateDoc(chatRef, {
+      [`typing.${user.uid}`]: isTyping ? serverTimestamp() : null
+    });
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -182,6 +193,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         createGroupChat,
         sendMessage,
         markAsRead,
+        updateTypingStatus,
       }}
     >
       {children}

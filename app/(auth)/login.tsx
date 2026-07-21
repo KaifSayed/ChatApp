@@ -95,23 +95,28 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
+        <Text style={[styles.subtitle, { color: theme.placeholder }]}>Sign in to continue your conversations</Text>
+      </View>
 
-      <Input
-        label="Email or Username"
-        value={identifier}
-        onChangeText={setIdentifier}
-        autoCapitalize="none"
-      />
-      <Input
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoCapitalize="none"
-      />
+      <View style={styles.form}>
+        <Input
+          label="Email or Username"
+          value={identifier}
+          onChangeText={setIdentifier}
+          autoCapitalize="none"
+        />
+        <Input
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+        />
 
-      <Button title="Log In" onPress={handleLogin} loading={loading} />
+        <Button title="Log In" onPress={handleLogin} loading={loading} />
+      </View>
 
       {/* Modern secondary login partition layout */}
       <View style={styles.dividerContainer}>
@@ -136,51 +141,64 @@ export default function LoginScreen() {
         </Text>
       </TouchableOpacity>
 
-      <Pressable onPress={() => router.push("/register")} style={styles.link}>
-        <Text style={{ color: theme.primary }}>
-          Don't have an account? Sign up
-        </Text>
-      </Pressable>
+      <View style={styles.footer}>
+        <Pressable onPress={() => router.push("/register")} style={styles.link}>
+          <Text style={{ color: theme.primary, fontWeight: "600" }}>
+            Don't have an account? Sign up
+          </Text>
+        </Pressable>
 
-      <Pressable
-        onPress={() => router.push("/forgot-password")}
-        style={styles.link}
-      >
-        <Text style={{ color: theme.placeholder }}>Forgot Password?</Text>
-      </Pressable>
+        <Pressable
+          onPress={() => router.push("/forgot-password")}
+          style={styles.link}
+        >
+          <Text style={{ color: theme.placeholder, fontWeight: "500" }}>Forgot Password?</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: "center" },
+  header: { marginBottom: 32, alignItems: "center" },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 24,
-    textAlign: "center",
+    fontSize: 32,
+    fontWeight: "800",
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
+  subtitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  form: { width: "100%" },
   link: { marginTop: 16, alignItems: "center" },
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 24,
   },
   line: { flex: 1, height: 1 },
   dividerText: {
-    marginHorizontal: 10,
-    paddingHorizontal: 10,
+    marginHorizontal: 16,
     fontSize: 14,
     fontWeight: "600",
   },
   googleButton: {
-    height: 50,
-    borderRadius: 8,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
-    marginBottom: 8,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  googleButtonText: { fontSize: 16, fontWeight: "600" },
+  googleButtonText: { fontSize: 16, fontWeight: "600", letterSpacing: 0.5 },
+  footer: { alignItems: "center", marginTop: 8 },
 });

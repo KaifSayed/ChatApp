@@ -11,8 +11,9 @@ import { Avatar } from "../../../src/components/common/Avatar";
 import { useAuth } from "../../../src/context/AuthContext";
 import { useTheme } from "../../../src/context/ThemeContext";
 
-import { useChat, Chat } from "../../../src/context/ChatContext";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { Chat, useChat } from "../../../src/context/ChatContext";
 
 export default function HomeScreen() {
   const { profile, logout } = useAuth();
@@ -28,8 +29,10 @@ export default function HomeScreen() {
     if (chat.type === "group") return chat.name || "Group Chat";
     // For private chats, the name is the other participant's ID for now
     // We would ideally fetch their profile to get the displayName
-    const otherParticipantId = chat.participants.find((p) => p !== profile?.uid);
-    return `User ${otherParticipantId?.slice(0, 5)}...`; // Placeholder name
+    const otherParticipantId = chat.participants.find(
+      (p) => p !== profile?.uid,
+    );
+    return `User ${otherParticipantId?.slice(0, 5) || ""}...`; // Placeholder name
   };
 
   return (
@@ -60,22 +63,34 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={[styles.logoutButton, { borderColor: theme.border }]}
-          onPress={logout}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.logoutText, { color: theme.error }]}>
-            Log Out
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => router.push("/(app)/search")}
+          >
+            <Ionicons name="search" size={24} color={theme.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Body Content */}
-      <ScrollView contentContainerStyle={chats.length === 0 ? styles.content : undefined}>
+      <ScrollView
+        contentContainerStyle={chats.length === 0 ? styles.content : undefined}
+      >
         {loadingChats ? (
-          <View style={[styles.emptyState, { backgroundColor: theme.surface, marginTop: 16, marginHorizontal: 16 }]}>
-             <Text style={[styles.emptyTitle, { color: theme.text }]}>Loading Chats...</Text>
+          <View
+            style={[
+              styles.emptyState,
+              {
+                backgroundColor: theme.surface,
+                marginTop: 16,
+                marginHorizontal: 16,
+              },
+            ]}
+          >
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>
+              Loading Chats...
+            </Text>
           </View>
         ) : chats.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: theme.surface }]}>
@@ -83,40 +98,77 @@ export default function HomeScreen() {
               No Recent Chats
             </Text>
             <Text style={[styles.emptySubtitle, { color: theme.placeholder }]}>
-              Your conversations will show up here. Tap the search button to find
-              friends and start chatting!
+              Your conversations will show up here. Tap the search button to
+              find friends and start chatting!
             </Text>
           </View>
         ) : (
           chats.map((chat) => {
-            const isUnread = chat.unreadCount?.[profile?.uid || ""] > 0;
+            const userUnreadCount = profile?.uid
+              ? chat.unreadCount?.[profile.uid] || 0
+              : 0;
+            const isUnread = userUnreadCount > 0;
+
             return (
               <TouchableOpacity
                 key={chat.id}
                 style={[styles.chatItem, { borderBottomColor: theme.border }]}
                 onPress={() => handleChatPress(chat)}
               >
-                <Avatar name={getChatName(chat)} size={50} uri={chat.type === "group" ? chat.groupImage : undefined} />
+                <Avatar
+                  name={getChatName(chat)}
+                  size={50}
+                  uri={chat.type === "group" ? chat.groupImage : undefined}
+                />
                 <View style={styles.chatItemInfo}>
                   <View style={styles.chatItemHeader}>
-                    <Text style={[styles.chatItemName, { color: theme.text }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.chatItemName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
                       {getChatName(chat)}
                     </Text>
                     {chat.updatedAt && (
-                      <Text style={[styles.chatItemTime, { color: theme.placeholder }]}>
-                        {new Date(chat.updatedAt?.toDate?.() || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <Text
+                        style={[
+                          styles.chatItemTime,
+                          { color: theme.placeholder },
+                        ]}
+                      >
+                        {new Date(
+                          chat.updatedAt?.toDate?.() || Date.now(),
+                        ).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </Text>
                     )}
                   </View>
                   <View style={styles.chatItemFooter}>
-                     <Text style={[styles.chatItemRecentMessage, { color: isUnread ? theme.text : theme.placeholder, fontWeight: isUnread ? "600" : "400" }]} numberOfLines={1}>
-                        {chat.recentMessage?.text || "New Chat started"}
-                     </Text>
-                     {isUnread && (
-                       <View style={[styles.unreadBadge, { backgroundColor: theme.primary }]}>
-                          <Text style={styles.unreadBadgeText}>{chat.unreadCount![profile!.uid]}</Text>
-                       </View>
-                     )}
+                    <Text
+                      style={[
+                        styles.chatItemRecentMessage,
+                        {
+                          color: isUnread ? theme.text : theme.placeholder,
+                          fontWeight: isUnread ? "600" : "400",
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {chat.recentMessage?.text || "New Chat started"}
+                    </Text>
+                    {isUnread && (
+                      <View
+                        style={[
+                          styles.unreadBadge,
+                          { backgroundColor: theme.primary },
+                        ]}
+                      >
+                        <Text style={styles.unreadBadgeText}>
+                          {userUnreadCount}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -124,6 +176,14 @@ export default function HomeScreen() {
           })
         )}
       </ScrollView>
+
+      {/* FAB for Create Group */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.primary }]}
+        onPress={() => router.push("/(app)/create-group")}
+      >
+        <Ionicons name="people" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -152,15 +212,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: "600",
+  headerIconBtn: {
+    padding: 8,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   content: {
     flexGrow: 1,

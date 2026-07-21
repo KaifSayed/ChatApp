@@ -20,10 +20,12 @@ export const Avatar: React.FC<AvatarProps> = ({ uri, name, size = 50 }) => {
 
   if (uri) {
     return (
-      <Image
-        source={{ uri }}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
-      />
+      <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, borderColor: theme.border }]}>
+        <Image
+          source={{ uri }}
+          style={{ width: "100%", height: "100%", borderRadius: size / 2 }}
+        />
+      </View>
     );
   }
 
@@ -31,15 +33,17 @@ export const Avatar: React.FC<AvatarProps> = ({ uri, name, size = 50 }) => {
     <View
       style={[
         styles.fallback,
+        styles.container,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: theme.surface,
+          backgroundColor: theme.secondary,
+          borderColor: theme.border,
         },
       ]}
     >
-      <Text style={[styles.text, { fontSize: size * 0.4, color: theme.text }]}>
+      <Text style={[styles.text, { fontSize: size * 0.35, color: theme.primary }]}>
         {initials || "?"}
       </Text>
     </View>
@@ -47,6 +51,10 @@ export const Avatar: React.FC<AvatarProps> = ({ uri, name, size = 50 }) => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
   fallback: { justifyContent: "center", alignItems: "center" },
-  text: { fontWeight: "600" },
+  text: { fontWeight: "700", letterSpacing: 0.5 },
 });

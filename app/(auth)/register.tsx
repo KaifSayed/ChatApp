@@ -3,11 +3,12 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { Button } from "../../src/components/common/Button";
 import { Input } from "../../src/components/common/Input";
@@ -45,40 +46,56 @@ export default function RegisterScreen() {
         styles.container,
         { backgroundColor: theme.background },
       ]}
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          Create Account
+        </Text>
+        <Text style={[styles.subtitle, { color: theme.placeholder }]}>
+          Join the conversation today
+        </Text>
+      </View>
 
-      <Input
-        label="Display Name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-      <Input
-        label="Username"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <Input
-        label="Email Address"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <Input
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoCapitalize="none"
-      />
+      <View style={styles.form}>
+        <Input
+          label="Display Name"
+          value={displayName}
+          onChangeText={setDisplayName}
+          placeholder="e.g. John Doe"
+        />
+        <Input
+          label="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          placeholder="e.g. johndoe123"
+        />
+        <Input
+          label="Email Address"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholder="e.g. john@example.com"
+        />
+        <Input
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholder="Must be at least 6 characters"
+        />
 
-      <Button title="Register" onPress={handleRegister} loading={loading} />
+        <View style={styles.buttonContainer}>
+          <Button title="Register" onPress={handleRegister} loading={loading} />
+        </View>
+      </View>
 
       <Pressable onPress={() => router.back()} style={styles.link}>
-        <Text style={{ color: theme.primary }}>
-          Already registered? Log in here
+        <Text style={{ color: theme.primary, fontWeight: "600" }}>
+          Already have an account? Log in here
         </Text>
       </Pressable>
     </ScrollView>
@@ -87,11 +104,18 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, justifyContent: "center" },
+  header: { marginBottom: 32, alignItems: "center" },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 24,
-    textAlign: "center",
+    fontSize: 32,
+    fontWeight: "800",
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  link: { marginTop: 16, alignItems: "center" },
+  subtitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  form: { width: "100%" },
+  buttonContainer: { marginTop: 8, marginBottom: 16 },
+  link: { marginTop: 16, alignItems: "center", paddingVertical: 12 },
 });
