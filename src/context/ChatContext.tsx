@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -11,7 +12,13 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { db } from "../services/firebase";
 import { useAuth } from "./AuthContext";
 
@@ -48,6 +55,7 @@ interface ChatContextType {
   sendMessage: (chatId: string, text: string, image?: string) => Promise<void>;
   markAsRead: (chatId: string) => Promise<void>;
   updateTypingStatus: (chatId: string, isTyping: boolean) => Promise<void>;
+  getUserProfile: (userId: string) => any;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -58,6 +66,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loadingChats, setLoadingChats] = useState(true);
+  const [userProfiles, setUserProfiles] = useState<Record<string, any>>({});
+  const fetchingProfiles = useRef<Set<string>>(new Set());
+
+  const getUserProfile = (userId: string) => {
+    if (!userProfiles[userId]) {
+      fetchUserProfile(userId);
+      return null;
+    }
+    return userProfiles[userId];
+  };
+
+  const fetchUserProfile = async (userId: string) => {
+    if (fetchingProfiles.current.has(userId)) return;
+    fetchingProfiles.current.add(userId);
+    try {
+      const docRef = doc(db, "users", userId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        setUserProfiles((prev) => ({ ...prev, [userId]: snap.data() }));
+      } else {
+        setUserProfiles((prev) => ({
+          ...prev,
+          [userId]: { displayName: "Unknown User" },
+        }));
+      }
+    } catch (e) {
+      console.error(`Failed to fetch profile for ${userId}`, e);
+      fetchingProfiles.current.delete(userId);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -95,7 +133,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       where("participants", "array-contains", user.uid),
     );
     const snapshot = await getDocs(q);
-    
+
     let existingChatId: string | null = null;
     snapshot.forEach((d) => {
       const data = d.data();
@@ -122,10 +160,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) throw new Error("Not authenticated");
 
     const allParticipants = [user.uid, ...participantIds];
-    const unreadCount = allParticipants.reduce((acc, p) => {
-      acc[p] = 0;
-      return acc;
-    }, {} as Record<string, number>);
+    const unreadCount = allParticipants.reduce(
+      (acc, p) => {
+        acc[p] = 0;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     const newChatRef = doc(collection(db, "chats"));
     await setDoc(newChatRef, {
@@ -168,19 +209,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const markAsRead = async (chatId: string) => {
     if (!user) return;
-    
+
     const chatRef = doc(db, "chats", chatId);
     await updateDoc(chatRef, {
-      [`unreadCount.${user.uid}`]: 0
+      [`unreadCount.${user.uid}`]: 0,
     });
   };
 
   const updateTypingStatus = async (chatId: string, isTyping: boolean) => {
     if (!user) return;
-    
+
     const chatRef = doc(db, "chats", chatId);
     await updateDoc(chatRef, {
-      [`typing.${user.uid}`]: isTyping ? serverTimestamp() : null
+      [`typing.${user.uid}`]: isTyping ? serverTimestamp() : null,
     });
   };
 
@@ -194,6 +235,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         sendMessage,
         markAsRead,
         updateTypingStatus,
+        getUserProfile,
       }}
     >
       {children}

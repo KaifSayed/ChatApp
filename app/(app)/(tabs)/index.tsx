@@ -15,10 +15,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Chat, useChat } from "../../../src/context/ChatContext";
 
+import { ChatRow } from "../../../src/components/chat/ChatRow";
+
 export default function HomeScreen() {
   const { profile, logout } = useAuth();
   const { theme } = useTheme();
-  const { chats, loadingChats } = useChat();
+  const { chats, loadingChats, getUserProfile } = useChat();
   const router = useRouter();
 
   const handleChatPress = (chat: Chat) => {
@@ -27,12 +29,24 @@ export default function HomeScreen() {
 
   const getChatName = (chat: Chat) => {
     if (chat.type === "group") return chat.name || "Group Chat";
-    // For private chats, the name is the other participant's ID for now
-    // We would ideally fetch their profile to get the displayName
     const otherParticipantId = chat.participants.find(
       (p) => p !== profile?.uid,
     );
-    return `User ${otherParticipantId?.slice(0, 5) || ""}...`; // Placeholder name
+    if (!otherParticipantId) return "Unknown User";
+    const otherProfile = getUserProfile(otherParticipantId);
+    return (
+      otherProfile?.displayName || `User ${otherParticipantId.slice(0, 5)}...`
+    );
+  };
+
+  const getChatImage = (chat: Chat) => {
+    if (chat.type === "group") return chat.groupImage;
+    const otherParticipantId = chat.participants.find(
+      (p) => p !== profile?.uid,
+    );
+    if (!otherParticipantId) return undefined;
+    const otherProfile = getUserProfile(otherParticipantId);
+    return otherProfile?.photoURL;
   };
 
   return (
@@ -107,71 +121,16 @@ export default function HomeScreen() {
             const userUnreadCount = profile?.uid
               ? chat.unreadCount?.[profile.uid] || 0
               : 0;
-            const isUnread = userUnreadCount > 0;
 
             return (
-              <TouchableOpacity
+              <ChatRow
                 key={chat.id}
-                style={[styles.chatItem, { borderBottomColor: theme.border }]}
-                onPress={() => handleChatPress(chat)}
-              >
-                <Avatar
-                  name={getChatName(chat)}
-                  size={50}
-                  uri={chat.type === "group" ? chat.groupImage : undefined}
-                />
-                <View style={styles.chatItemInfo}>
-                  <View style={styles.chatItemHeader}>
-                    <Text
-                      style={[styles.chatItemName, { color: theme.text }]}
-                      numberOfLines={1}
-                    >
-                      {getChatName(chat)}
-                    </Text>
-                    {chat.updatedAt && (
-                      <Text
-                        style={[
-                          styles.chatItemTime,
-                          { color: theme.placeholder },
-                        ]}
-                      >
-                        {new Date(
-                          chat.updatedAt?.toDate?.() || Date.now(),
-                        ).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.chatItemFooter}>
-                    <Text
-                      style={[
-                        styles.chatItemRecentMessage,
-                        {
-                          color: isUnread ? theme.text : theme.placeholder,
-                          fontWeight: isUnread ? "600" : "400",
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {chat.recentMessage?.text || "New Chat started"}
-                    </Text>
-                    {isUnread && (
-                      <View
-                        style={[
-                          styles.unreadBadge,
-                          { backgroundColor: theme.primary },
-                        ]}
-                      >
-                        <Text style={styles.unreadBadgeText}>
-                          {userUnreadCount}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
+                chat={chat}
+                chatName={getChatName(chat)}
+                chatImage={getChatImage(chat)}
+                userUnreadCount={userUnreadCount}
+                onPress={handleChatPress}
+              />
             );
           })
         )}
@@ -253,53 +212,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
-  },
-  chatItem: {
-    flexDirection: "row",
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    alignItems: "center",
-  },
-  chatItemInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: "center",
-  },
-  chatItemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  chatItemName: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-  },
-  chatItemTime: {
-    fontSize: 12,
-    marginLeft: 8,
-  },
-  chatItemFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  chatItemRecentMessage: {
-    fontSize: 14,
-    flex: 1,
-    paddingRight: 16,
-  },
-  unreadBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unreadBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
   },
 });

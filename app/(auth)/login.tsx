@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,6 +17,7 @@ import { Button } from "../../src/components/common/Button";
 import { Input } from "../../src/components/common/Input";
 import { useAuth } from "../../src/context/AuthContext";
 import { useTheme } from "../../src/context/ThemeContext";
+import { handleAuthError } from "../../src/utils/authErrors";
 
 // Required step for browser/popup-based OAuth flows in Expo
 WebBrowser.maybeCompleteAuthSession();
@@ -30,18 +32,15 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   // Setup Expo Google Request handler hooks
-  // Setup Expo Google Request handler hooks correctly for multi-platform environments
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    // Highlight-start
     redirectUri: AuthSession.makeRedirectUri({
-      scheme: "myapp", // Match the scheme defined in your app.json / app.config.js
-      preferLocalhost: true, // Crucial for local Web development (localhost:8081)
+      scheme: "myapp",
+      preferLocalhost: true,
     }),
-    // Highlight-end
   });
 
   useEffect(() => {
@@ -61,13 +60,15 @@ export default function LoginScreen() {
   }, [response]);
 
   const handleLogin = async () => {
-    if (!identifier || !password)
-      return Alert.alert("Error", "Fill all values");
+    if (!identifier || !password) {
+      return handleAuthError("Please fill in all fields", "Validation Error");
+    }
+
     try {
       setLoading(true);
       await login(identifier, password);
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message);
+      handleAuthError(err, "Login Failed");
     } finally {
       setLoading(false);
     }
@@ -78,13 +79,11 @@ export default function LoginScreen() {
       setLoading(true);
 
       if (Platform.OS === "web") {
-        // Full Page Redirect: Completely eliminates COOP popup handshake blocking on Web
         await promptAsync({
           showInRecents: true,
-          windowFeatures: undefined, // Forces standard window navigation instead of a isolated popup
+          windowFeatures: undefined,
         });
       } else {
-        // Standard mobile trigger behavior
         await promptAsync();
       }
     } catch (err: any) {
@@ -94,111 +93,162 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
-        <Text style={[styles.subtitle, { color: theme.placeholder }]}>Sign in to continue your conversations</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Input
-          label="Email or Username"
-          value={identifier}
-          onChangeText={setIdentifier}
-          autoCapitalize="none"
-        />
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        <Button title="Log In" onPress={handleLogin} loading={loading} />
-      </View>
-
-      {/* Modern secondary login partition layout */}
-      <View style={styles.dividerContainer}>
-        <View style={[styles.line, { backgroundColor: theme.border }]} />
-        <Text style={[styles.dividerText, { color: theme.placeholder }]}>
-          OR
-        </Text>
-        <View style={[styles.line, { backgroundColor: theme.border }]} />
-      </View>
-
-      <TouchableOpacity
+    <ScrollView
+      contentContainerStyle={[
+        styles.scrollContainer,
+        { backgroundColor: theme.background },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View
         style={[
-          styles.googleButton,
-          { backgroundColor: theme.surface, borderColor: theme.border },
+          styles.card,
+          {
+            backgroundColor: theme.surface || theme.background,
+            borderColor: theme.border,
+          },
         ]}
-        disabled={!request || loading}
-        onPress={handleGooglePress} // <-- Route through our platform-smart handler
-        activeOpacity={0.8}
       >
-        <Text style={[styles.googleButtonText, { color: theme.text }]}>
-          Sign In with Google
-        </Text>
-      </TouchableOpacity>
-
-      <View style={styles.footer}>
-        <Pressable onPress={() => router.push("/register")} style={styles.link}>
-          <Text style={{ color: theme.primary, fontWeight: "600" }}>
-            Don't have an account? Sign up
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Welcome Back
           </Text>
-        </Pressable>
+          <Text style={[styles.subtitle, { color: theme.placeholder }]}>
+            Sign in to continue your conversations
+          </Text>
+        </View>
 
-        <Pressable
-          onPress={() => router.push("/forgot-password")}
-          style={styles.link}
+        <View style={styles.form}>
+          <Input
+            label="Email or Username"
+            value={identifier}
+            onChangeText={setIdentifier}
+            autoCapitalize="none"
+          />
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
+          <Button title="Log In" onPress={handleLogin} loading={loading} />
+        </View>
+
+        {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={[styles.line, { backgroundColor: theme.border }]} />
+          <Text style={[styles.dividerText, { color: theme.placeholder }]}>
+            OR
+          </Text>
+          <View style={[styles.line, { backgroundColor: theme.border }]} />
+        </View>
+
+        {/* Google Sign In */}
+        <TouchableOpacity
+          style={[
+            styles.googleButton,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+          disabled={!request || loading}
+          onPress={handleGooglePress}
+          activeOpacity={0.8}
         >
-          <Text style={{ color: theme.placeholder, fontWeight: "500" }}>Forgot Password?</Text>
-        </Pressable>
+          <Text style={[styles.googleButtonText, { color: theme.text }]}>
+            Sign In with Google
+          </Text>
+        </TouchableOpacity>
+
+        {/* Footer Navigation */}
+        <View style={styles.footer}>
+          <Pressable
+            onPress={() => router.push("/register")}
+            style={styles.link}
+          >
+            <Text style={{ color: theme.primary, fontWeight: "600" }}>
+              Don't have an account? Sign up
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/forgot-password")}
+            style={styles.link}
+          >
+            <Text style={{ color: theme.placeholder, fontWeight: "500" }}>
+              Forgot Password?
+            </Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center" },
-  header: { marginBottom: 32, alignItems: "center" },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 440, // Keeps the login card constrained on wider windows
+    padding: 32,
+    borderRadius: 20,
+    borderWidth: Platform.OS === "web" ? 1 : 0,
+    // Soft shadow for desktop view
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.06)",
+      },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  header: { marginBottom: 28, alignItems: "center" },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "800",
     marginBottom: 8,
     letterSpacing: 0.5,
+    textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "500",
+    textAlign: "center",
   },
   form: { width: "100%" },
-  link: { marginTop: 16, alignItems: "center" },
+  link: { marginTop: 14, alignItems: "center" },
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 24,
+    marginVertical: 20,
   },
   line: { flex: 1, height: 1 },
   dividerText: {
     marginHorizontal: 16,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   googleButton: {
-    height: 54,
-    borderRadius: 27,
+    height: 50,
+    borderRadius: 25,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 12,
   },
-  googleButtonText: { fontSize: 16, fontWeight: "600", letterSpacing: 0.5 },
+  googleButtonText: { fontSize: 15, fontWeight: "600", letterSpacing: 0.3 },
   footer: { alignItems: "center", marginTop: 8 },
 });

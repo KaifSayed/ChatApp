@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MessageBubble } from "../../../src/components/chat/MessageBubble";
 import { Avatar } from "../../../src/components/common/Avatar";
 import { useAuth } from "../../../src/context/AuthContext";
 import { useCall } from "../../../src/context/CallContext";
@@ -25,7 +26,8 @@ export default function ActiveChatScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { chats, sendMessage, markAsRead, updateTypingStatus } = useChat();
+  const { chats, sendMessage, markAsRead, updateTypingStatus, getUserProfile } =
+    useChat();
   const { startCall } = useCall();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -107,12 +109,17 @@ export default function ActiveChatScreen() {
     if (!chat) return "Loading...";
     if (chat.type === "group") return chat.name || "Group Chat";
     const otherId = chat.participants?.find((p) => p !== user?.uid);
-    return otherId ? `User ${otherId.slice(0, 5)}` : "Chat";
+    if (!otherId) return "Chat";
+    const otherProfile = getUserProfile(otherId);
+    return otherProfile?.displayName || `User ${otherId.slice(0, 5)}`;
   };
 
   const handleStartCall = (isVideo: boolean) => {
     if (chat?.type === "group") {
-      startCall(chatId, isVideo, true);
+      const targetParticipants = chat.participants?.filter(
+        (p) => p !== user?.uid,
+      );
+      startCall(chatId, isVideo, true, targetParticipants);
     } else {
       const targetId = chat?.participants?.find((p) => p !== user?.uid);
       if (targetId) {
@@ -132,6 +139,16 @@ export default function ActiveChatScreen() {
   };
 
   const typingUsers = getTypingUsers();
+  const typingNames = typingUsers.map(
+    (uid) => getUserProfile(uid)?.displayName?.split(" ")[0] || "Someone",
+  );
+
+  let typingText = "";
+  if (typingNames.length === 1) {
+    typingText = `${typingNames[0]} is typing...`;
+  } else if (typingNames.length > 1) {
+    typingText = `${typingNames.join(", ")} are typing...`;
+  }
 
   return (
     <SafeAreaView
@@ -160,7 +177,13 @@ export default function ActiveChatScreen() {
             <Avatar
               name={getChatName()}
               size={40}
-              uri={chat?.type === "group" ? chat.groupImage : undefined}
+              uri={
+                chat?.type === "group"
+                  ? chat.groupImage
+                  : getUserProfile(
+                      chat?.participants?.find((p) => p !== user?.uid) || "",
+                    )?.photoURL
+              }
             />
             <Text
               style={[styles.headerName, { color: theme.text }]}
@@ -199,51 +222,19 @@ export default function ActiveChatScreen() {
         >
           {messages.map((msg) => {
             const isMe = msg.senderId === user?.uid;
+            const senderProfile = getUserProfile(msg.senderId);
             return (
-              <View
+              <MessageBubble
                 key={msg.id}
-                style={[
-                  styles.messageBubble,
-                  isMe
-                    ? [
-                        styles.messageBubbleMe,
-                        { backgroundColor: theme.primary },
-                      ]
-                    : [
-                        styles.messageBubbleOther,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                        },
-                      ],
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: isMe ? "#fff" : theme.text },
-                  ]}
-                >
-                  {msg.text}
-                </Text>
-                <Text
-                  style={[
-                    styles.messageTime,
-                    {
-                      color: isMe ? "rgba(255,255,255,0.7)" : theme.placeholder,
-                    },
-                  ]}
-                >
-                  {msg.createdAt
-                    ? new Date(
-                        msg.createdAt.toDate?.() || Date.now(),
-                      ).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : ""}
-                </Text>
-              </View>
+                msg={msg}
+                isMe={isMe}
+                isGroup={chat?.type === "group"}
+                senderName={
+                  senderProfile?.displayName ||
+                  `User ${msg.senderId.slice(0, 5)}`
+                }
+                senderAvatar={senderProfile?.photoURL}
+              />
             );
           })}
         </ScrollView>
@@ -263,9 +254,7 @@ export default function ActiveChatScreen() {
                 fontSize: 12,
               }}
             >
-              {typingUsers.length === 1
-                ? "Someone is typing..."
-                : "Multiple people are typing..."}
+              {typingText}
             </Text>
           </View>
         )}
@@ -357,30 +346,6 @@ const styles = StyleSheet.create({
   messageList: {
     padding: 16,
     paddingBottom: 24,
-  },
-  messageBubble: {
-    maxWidth: "80%",
-    padding: 14,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  messageBubbleMe: {
-    alignSelf: "flex-end",
-    borderBottomRightRadius: 4,
-  },
-  messageBubbleOther: {
-    alignSelf: "flex-start",
-    borderBottomLeftRadius: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  messageTime: {
-    fontSize: 11,
-    alignSelf: "flex-end",
-    marginTop: 6,
   },
   typingIndicator: {
     paddingHorizontal: 24,

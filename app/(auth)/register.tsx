@@ -2,18 +2,12 @@
 
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../src/components/common/Button";
 import { Input } from "../../src/components/common/Input";
 import { useAuth } from "../../src/context/AuthContext";
 import { useTheme } from "../../src/context/ThemeContext";
+import { handleAuthError } from "../../src/utils/authErrors";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
@@ -28,13 +22,17 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !username || !displayName || !password) {
-      return Alert.alert("Error", "Please fill all required inputs");
+      return handleAuthError(
+        "Please fill in all required fields",
+        "Validation Error",
+      );
     }
+
     try {
       setLoading(true);
       await register(email, username, displayName, password);
     } catch (err: any) {
-      Alert.alert("Registration Error", err.message);
+      handleAuthError(err, "Registration Failed");
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import { getSocket, initSocket } from "../services/socket";
 import {
   mediaDevices,
@@ -25,8 +25,10 @@ interface CallContextType {
     targetUserIdOrRoomId: string,
     isVideo?: boolean,
     isGroup?: boolean,
+    participants?: string[],
   ) => Promise<void>;
   answerCall: () => Promise<void>;
+  declineCall: () => void;
   endCall: (emit?: boolean) => void;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -45,6 +47,16 @@ const configuration = {
   ],
 };
 
+// Helper for cross-platform visual alerts
+const displayAlert = (title: string, message: string) => {
+  console.log(`[ALERT DISPLAYED] ${title}: ${message}`);
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -61,23 +73,51 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isGroupCall, setIsGroupCall] = useState(false);
 
+  // Use refs to avoid stale closure issues in socket callbacks
+  const isCallingRef = useRef(false);
+  const isGroupCallRef = useRef(false);
+  const ringTimeoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invitedParticipants = useRef<string[]>([]);
+  const declinedParticipants = useRef<Set<string>>(new Set());
+
   const peerConnections = useRef<Map<string, any>>(new Map()); // targetUserId -> RTCPeerConnection
   const currentRoomId = useRef<string | null>(null);
   const currentCallTarget = useRef<string | null>(null);
 
+  // Sync state with refs to keep socket callbacks accurate
   useEffect(() => {
-    if (!user) return;
+    isCallingRef.current = isCalling;
+  }, [isCalling]);
 
+  useEffect(() => {
+    isGroupCallRef.current = isGroupCall;
+  }, [isGroupCall]);
+
+  useEffect(() => {
+    if (!user) {
+      console.log("[CallContext] No authenticated user found.");
+      return;
+    }
+
+    console.log(
+      "[CallContext] Initializing socket connection for user:",
+      user.uid,
+    );
     const socket = initSocket();
     socket.emit("register", user.uid);
 
     socket.on("offer", async (data) => {
-      console.log("Received offer from", data.callerId);
-      if (isCalling) {
+      console.log(
+        "[Socket Event] 'offer' received from callerId:",
+        data?.callerId,
+      );
+      if (isCallingRef.current) {
         if (currentRoomId.current && data.roomId === currentRoomId.current) {
           handleReceivedOffer(data);
         } else {
-          console.log("Ignored offer because already in a call.");
+          console.log(
+            "[Socket Event] Ignored offer because user is already in a call.",
+          );
         }
       } else {
         setIncomingCall(data);
@@ -85,43 +125,107 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
 
+    socket.on("group-call-invite", (data) => {
+      console.log(
+        "[Socket Event] 'group-call-invite' received from callerId:",
+        data?.callerId,
+      );
+      if (!isCallingRef.current) {
+        setIncomingCall(data);
+        router.push(`/(app)/call/incoming?callerId=${data.callerId}`);
+      }
+    });
+
+    socket.on("call-declined", (data) => {
+      console.log(
+        "[Socket Event] 'call-declined' received from userId:",
+        data?.fromUserId,
+      );
+
+      if (isGroupCallRef.current) {
+        if (data?.fromUserId) {
+          declinedParticipants.current.add(data.fromUserId);
+        }
+        if (
+          invitedParticipants.current.length > 0 &&
+          declinedParticipants.current.size >=
+            invitedParticipants.current.length
+        ) {
+          displayAlert("Call Ended", "All participants declined the call.");
+          endCall(true);
+        } else {
+          displayAlert("Participant Declined", "A user declined the call.");
+        }
+      } else {
+        displayAlert("Call Declined", "The recipient declined your call.");
+        endCall(true);
+      }
+    });
+
     socket.on("answer", async (data) => {
-      console.log("Received answer from", data.answererId);
+      console.log(
+        "[Socket Event] 'answer' received from answererId:",
+        data?.answererId,
+      );
+      if (ringTimeoutTimer.current) {
+        clearTimeout(ringTimeoutTimer.current);
+        ringTimeoutTimer.current = null;
+      }
       const pc = peerConnections.current.get(data.answererId);
       if (pc) {
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          console.log(
+            "[WebRTC] Remote description successfully set on answer.",
+          );
         } catch (e) {
-          console.error("Error setting remote description on answer", e);
+          console.error(
+            "[WebRTC Error] Error setting remote description on answer:",
+            e,
+          );
         }
+      } else {
+        console.warn(
+          "[WebRTC Warning] PeerConnection not found for answererId:",
+          data?.answererId,
+        );
       }
     });
 
     socket.on("ice-candidate", async (data) => {
+      console.log(
+        "[Socket Event] 'ice-candidate' received from senderId:",
+        data?.senderId,
+      );
       const pc = peerConnections.current.get(data.senderId);
       if (pc && data.candidate) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
-          console.error("Error adding ICE candidate", e);
+          console.error("[WebRTC Error] Error adding ICE candidate:", e);
         }
       }
     });
 
     socket.on("user-joined", async (data) => {
-      console.log("User joined room:", data.userId);
+      console.log("[Socket Event] 'user-joined' room:", data?.userId);
+      if (ringTimeoutTimer.current) {
+        clearTimeout(ringTimeoutTimer.current);
+        ringTimeoutTimer.current = null;
+      }
       if (localStream) {
         initiateCallTo(data.userId, localStream, currentRoomId.current!);
       }
     });
 
     socket.on("user-left", (data) => {
-      console.log("User left room:", data.userId);
+      console.log("[Socket Event] 'user-left' room:", data?.userId);
       removePeerConnection(data.userId);
     });
 
     socket.on("call-ended", (data) => {
-      if (!isGroupCall || !currentRoomId.current) {
+      console.log("[Socket Event] 'call-ended' received from:", data?.enderId);
+      if (!isGroupCallRef.current || !currentRoomId.current) {
         endCall(false);
       } else if (data.enderId) {
         removePeerConnection(data.enderId);
@@ -129,16 +233,20 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     return () => {
+      console.log("[CallContext] Cleaning up socket event listeners.");
       socket.off("offer");
       socket.off("answer");
+      socket.off("group-call-invite");
+      socket.off("call-declined");
       socket.off("ice-candidate");
       socket.off("user-joined");
       socket.off("user-left");
       socket.off("call-ended");
     };
-  }, [user, isCalling, localStream]);
+  }, [user, localStream]);
 
   const addRemoteStream = (userId: string, stream: MediaStream) => {
+    console.log("[CallContext] Adding remote stream for userId:", userId);
     setRemoteStreams((prev) => {
       const newMap = new Map(prev);
       newMap.set(userId, stream);
@@ -147,6 +255,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const removePeerConnection = (userId: string) => {
+    console.log("[CallContext] Removing PeerConnection for userId:", userId);
     const pc = peerConnections.current.get(userId);
     if (pc) {
       pc.close();
@@ -160,7 +269,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const setupMedia = async (isVideo: boolean = true) => {
+    console.log("[Media Setup] Requesting user media. Video enabled:", isVideo);
     if (typeof window === "undefined" && Platform.OS === "web") return null;
+
     let stream: MediaStream | null = null;
     if (isVideo) {
       try {
@@ -174,18 +285,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         setIsVideoEnabled(true);
       } catch (err) {
-        console.warn("Video failed, fallback to audio", err);
+        console.warn(
+          "[Media Setup] Video media failed, attempting audio fallback:",
+          err,
+        );
       }
     }
+
     if (!stream) {
       try {
         stream = await mediaDevices.getUserMedia({ audio: true, video: false });
         setIsVideoEnabled(false);
       } catch (err) {
-        console.error("Critical: Failed to acquire audio", err);
+        console.error(
+          "[Media Setup Error] Critical failure acquiring audio:",
+          err,
+        );
+        displayAlert(
+          "Permission Error",
+          "Unable to access microphone or camera.",
+        );
         return null;
       }
     }
+
     setLocalStream(stream);
     setIsMuted(false);
     return stream;
@@ -196,10 +319,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     stream: MediaStream,
     roomId?: string,
   ) => {
+    console.log(
+      "[WebRTC] Creating RTCPeerConnection for targetUserId:",
+      targetUserId,
+    );
     const pc = new RTCPeerConnection(configuration);
 
     pc.onicecandidate = (event: any) => {
       if (event.candidate) {
+        console.log(
+          "[WebRTC] Discovered ICE candidate for target:",
+          targetUserId,
+        );
         const socket = getSocket();
         socket?.emit("ice-candidate", {
           targetUserId,
@@ -210,6 +341,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     pc.ontrack = (event: any) => {
+      console.log("[WebRTC] Track received from target:", targetUserId);
       if (event.streams && event.streams[0]) {
         addRemoteStream(targetUserId, event.streams[0]);
       }
@@ -228,6 +360,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     stream: MediaStream,
     roomId?: string,
   ) => {
+    console.log(
+      "[CallContext] Initiating outgoing offer call to:",
+      targetUserId,
+    );
     const pc = createPeerConnection(targetUserId, stream, roomId);
     try {
       const offer = await pc.createOffer({});
@@ -240,7 +376,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         isVideo: isVideoEnabled,
       });
     } catch (e) {
-      console.error("Error creating offer", e);
+      console.error(
+        "[WebRTC Error] Failed to create or set local offer description:",
+        e,
+      );
     }
   };
 
@@ -248,11 +387,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     targetId: string,
     isVideo: boolean = true,
     isGroup: boolean = false,
+    participants?: string[],
   ) => {
-    if (!user) return;
+    if (!user) {
+      console.warn(
+        "[CallContext] Cannot start call without authenticated user.",
+      );
+      return;
+    }
 
+    console.log(
+      `[CallContext] Starting call. Target: ${targetId}, IsGroup: ${isGroup}`,
+    );
     setIsCalling(true);
     setIsGroupCall(isGroup);
+
+    declinedParticipants.current.clear();
+    invitedParticipants.current = participants || [];
+
+    if (ringTimeoutTimer.current) clearTimeout(ringTimeoutTimer.current);
+    ringTimeoutTimer.current = setTimeout(() => {
+      console.log("[Call Ring] Call ring timed out after 30 seconds.");
+      displayAlert("No Answer", "The call timed out after 30 seconds.");
+      endCall(true);
+    }, 30000);
 
     const stream = await setupMedia(isVideo);
     if (!stream) {
@@ -263,8 +421,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     const socket = getSocket();
 
     if (isGroup) {
-      currentRoomId.current = targetId; // targetId is chatId
+      currentRoomId.current = targetId;
       socket?.emit("join-room", targetId);
+      if (participants && participants.length > 0) {
+        socket?.emit("group-call-invite", {
+          roomId: targetId,
+          callerId: user.uid,
+          participants,
+          isVideo,
+        });
+      }
     } else {
       currentCallTarget.current = targetId;
       initiateCallTo(targetId, stream);
@@ -275,6 +441,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleReceivedOffer = async (data: any) => {
     const { callerId, offer, roomId } = data;
+    console.log(
+      "[CallContext] Handling received offer from callerId:",
+      callerId,
+    );
+
     let stream = localStream;
     if (!stream) {
       stream = await setupMedia(data.isVideo !== false);
@@ -291,14 +462,32 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       const socket = getSocket();
       socket?.emit("answer", { targetUserId: callerId, answer, roomId });
     } catch (e) {
-      console.error("Error handling offer", e);
+      console.error(
+        "[WebRTC Error] Error handling offer and emitting answer:",
+        e,
+      );
     }
   };
 
   const answerCall = async () => {
-    if (!incomingCall || !user) return;
+    if (!incomingCall || !user) {
+      console.warn(
+        "[CallContext] Answer call invoked with no active incoming call.",
+      );
+      return;
+    }
 
-    const { callerId, roomId, isVideo } = incomingCall;
+    console.log(
+      "[CallContext] Answering call from callerId:",
+      incomingCall.callerId,
+    );
+
+    if (ringTimeoutTimer.current) {
+      clearTimeout(ringTimeoutTimer.current);
+      ringTimeoutTimer.current = null;
+    }
+
+    const { callerId, roomId } = incomingCall;
     setIsCalling(true);
     setIsGroupCall(!!roomId);
 
@@ -315,11 +504,42 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     router.push("/(app)/call/active");
   };
 
+  const declineCall = () => {
+    console.log("[CallContext] Declining incoming call.");
+    if (incomingCall) {
+      const socket = getSocket();
+      const targetUserId = incomingCall.callerId || incomingCall.fromUserId;
+
+      socket?.emit("call-declined", {
+        targetUserId,
+        callerId: targetUserId,
+        fromUserId: user?.uid,
+        roomId: incomingCall.roomId,
+      });
+      setIncomingCall(null);
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(tabs)");
+    }
+  };
+
   const endCall = (emit: boolean = true) => {
+    console.log("[CallContext] Ending call. Emit leave event:", emit);
+
+    if (ringTimeoutTimer.current) {
+      clearTimeout(ringTimeoutTimer.current);
+      ringTimeoutTimer.current = null;
+    }
+
+    declinedParticipants.current.clear();
+    invitedParticipants.current = [];
     const socket = getSocket();
 
     if (emit) {
-      if (isGroupCall && currentRoomId.current) {
+      if (isGroupCallRef.current && currentRoomId.current) {
         socket?.emit("leave-room", currentRoomId.current);
       } else if (currentCallTarget.current) {
         socket?.emit("end-call", { targetUserId: currentCallTarget.current });
@@ -335,7 +555,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         if (typeof (localStream as any).release === "function") {
           (localStream as any).release();
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("[Media Cleanup Error] Error stopping tracks:", e);
+      }
     }
 
     setLocalStream(null);
@@ -347,9 +569,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsGroupCall(false);
 
     if (router.canGoBack()) {
-      router.back();
-    } else {
       router.replace("/(app)/(tabs)");
+    } else {
+      router.back();
     }
   };
 
@@ -360,6 +582,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         const nextMuteState = audioTracks[0].enabled;
         audioTracks[0].enabled = !nextMuteState;
         setIsMuted(nextMuteState);
+        console.log("[CallContext] Microphones muted:", nextMuteState);
       }
     }
   };
@@ -371,6 +594,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         const nextVideoState = !videoTracks[0].enabled;
         videoTracks[0].enabled = nextVideoState;
         setIsVideoEnabled(nextVideoState);
+        console.log("[CallContext] Video enabled:", nextVideoState);
       }
     }
   };
@@ -381,6 +605,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       if (videoTracks.length > 0) {
         if (typeof (videoTracks[0] as any)._switchCamera === "function") {
           (videoTracks[0] as any)._switchCamera();
+          console.log("[CallContext] Switched camera.");
         }
       }
     }
@@ -395,6 +620,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
         incomingCall,
         startCall,
         answerCall,
+        declineCall,
         endCall,
         toggleMute,
         toggleVideo,

@@ -42,16 +42,16 @@ export default function CreateGroupScreen() {
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    
+
     setLoading(true);
     try {
       const usersRef = collection(db, "users");
       const q = query(
-        usersRef, 
+        usersRef,
         where("username", ">=", searchQuery.toLowerCase().trim()),
-        where("username", "<=", searchQuery.toLowerCase().trim() + "\uf8ff")
+        where("username", "<=", searchQuery.toLowerCase().trim() + "\uf8ff"),
       );
-      
+
       const snapshot = await getDocs(q);
       const fetchedUsers: SearchUser[] = [];
       snapshot.forEach((doc) => {
@@ -79,7 +79,7 @@ export default function CreateGroupScreen() {
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedUsers.length === 0) return;
-    
+
     setCreating(true);
     try {
       const participantIds = selectedUsers.map((u) => u.uid);
@@ -92,12 +92,17 @@ export default function CreateGroupScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.background }]}
+      edges={["top"]}
+    >
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>New Group</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          New Group
+        </Text>
       </View>
 
       <View style={styles.content}>
@@ -108,10 +113,19 @@ export default function CreateGroupScreen() {
           placeholder="Enter group name"
         />
 
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Add Members</Text>
-        
-        <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
-          <Ionicons name="search" size={20} color={theme.placeholder} style={styles.searchIcon} />
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Add Members
+        </Text>
+
+        <View
+          style={[styles.searchContainer, { backgroundColor: theme.surface }]}
+        >
+          <Ionicons
+            name="search"
+            size={20}
+            color={theme.placeholder}
+            style={styles.searchIcon}
+          />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
             placeholder="Search users..."
@@ -127,10 +141,22 @@ export default function CreateGroupScreen() {
           <View style={styles.selectedContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {selectedUsers.map((u) => (
-                <View key={u.uid} style={[styles.selectedChip, { backgroundColor: theme.surface }]}>
-                  <Text style={[styles.selectedText, { color: theme.text }]}>{u.displayName}</Text>
+                <View
+                  key={u.uid}
+                  style={[
+                    styles.selectedChip,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={[styles.selectedText, { color: theme.text }]}>
+                    {u.displayName}
+                  </Text>
                   <TouchableOpacity onPress={() => toggleUserSelection(u)}>
-                    <Ionicons name="close-circle" size={16} color={theme.placeholder} />
+                    <Ionicons
+                      name="close-circle"
+                      size={16}
+                      color={theme.placeholder}
+                    />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -151,8 +177,12 @@ export default function CreateGroupScreen() {
               >
                 <Avatar name={item.displayName} size={40} uri={item.photoURL} />
                 <View style={styles.userInfo}>
-                  <Text style={[styles.displayName, { color: theme.text }]}>{item.displayName}</Text>
-                  <Text style={[styles.username, { color: theme.placeholder }]}>@{item.username}</Text>
+                  <Text style={[styles.displayName, { color: theme.text }]}>
+                    {item.displayName}
+                  </Text>
+                  <Text style={[styles.username, { color: theme.placeholder }]}>
+                    @{item.username}
+                  </Text>
                 </View>
                 <Ionicons
                   name={isSelected ? "checkmark-circle" : "ellipse-outline"}
@@ -189,7 +219,12 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 12 },
   headerTitle: { fontSize: 18, fontWeight: "600" },
   content: { flex: 1, padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginTop: 16, marginBottom: 8 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",

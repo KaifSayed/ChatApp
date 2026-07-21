@@ -4,20 +4,26 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCall } from "../../../src/context/CallContext";
+import { useChat } from "../../../src/context/ChatContext";
 import { useTheme } from "../../../src/context/ThemeContext";
 
 export default function IncomingCallScreen() {
   const router = useRouter();
   const { callerId } = useLocalSearchParams();
-  const { answerCall, endCall } = useCall();
+  const { answerCall, declineCall } = useCall();
+  const { getUserProfile } = useChat();
   const { theme } = useTheme();
+
+  const callerProfile = callerId ? getUserProfile(callerId as string) : null;
+  const callerName =
+    callerProfile?.displayName || `User: ${callerId?.slice(0, 5) || "Unknown"}`;
 
   const handleAnswer = async () => {
     await answerCall();
   };
 
   const handleDecline = () => {
-    endCall();
+    declineCall();
   };
 
   return (
@@ -34,7 +40,7 @@ export default function IncomingCallScreen() {
           Incoming Call...
         </Text>
         <Text style={[styles.callerId, { color: theme.placeholder }]}>
-          User: {callerId}
+          {callerName}
         </Text>
       </View>
 
