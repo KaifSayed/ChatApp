@@ -18,7 +18,7 @@ import { Chat, useChat } from "../../../src/context/ChatContext";
 import { ChatRow } from "../../../src/components/chat/ChatRow";
 
 export default function HomeScreen() {
-  const { profile, logout } = useAuth();
+  const { profile } = useAuth();
   const { theme } = useTheme();
   const { chats, loadingChats, getUserProfile } = useChat();
   const router = useRouter();

@@ -61,14 +61,26 @@ export async function registerForPushNotificationsAsync() {
         );
       }
 
-      token = (
-        await Notifications.getExpoPushTokenAsync({
-          projectId,
-        })
-      ).data;
+      const pushTokenResult = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+      token = pushTokenResult.data;
       console.log("Expo Push Token:", token);
-    } catch (e) {
-      token = `${e}`;
+    } catch (e: any) {
+      if (
+        e?.message?.includes("Default FirebaseApp is not initialized") ||
+        e?.message?.includes("fcm-credentials")
+      ) {
+        console.warn(
+          "[PushNotifications] Android FCM credentials are not configured yet. To enable remote notifications, add 'google-services.json' and set 'android.googleServicesFile' in app.json. (Local notifications and in-app messaging work normally).",
+        );
+      } else {
+        console.warn(
+          "[PushNotifications] Could not get push token:",
+          e?.message || e,
+        );
+      }
+      return null;
     }
   } else {
     console.log("Must use physical device for Push Notifications");

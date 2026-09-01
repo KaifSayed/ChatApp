@@ -89,13 +89,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (emailOrUsername: string, password: string) => {
     let email = emailOrUsername.trim();
     if (!email.includes("@")) {
-      const q = query(
-        collection(db, "users"),
-        where("username", "==", email.toLowerCase()),
-      );
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) throw new Error("Username not found");
-      email = querySnapshot.docs[0].data().email;
+      try {
+        const q = query(
+          collection(db, "users"),
+          where("username", "==", email.toLowerCase()),
+        );
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+          throw new Error(
+            "No account found with this username. Try logging in with your email address.",
+          );
+        }
+        email = querySnapshot.docs[0].data().email;
+      } catch (err: any) {
+        if (
+          err?.code === "permission-denied" ||
+          err?.message?.includes("Missing or insufficient permissions") ||
+          err?.message?.includes("permission-denied")
+        ) {
+          throw new Error(
+            "Username lookup failed due to database rules. Please log in directly with your email address (e.g. user@example.com) or update Firestore Rules.",
+          );
+        }
+        throw err;
+      }
     }
     await signInWithEmailAndPassword(auth, email, password);
   };
@@ -107,31 +124,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
   ) => {
     const cleanUsername = username.toLowerCase().trim();
-    const q = query(
-      collection(db, "users"),
-      where("username", "==", cleanUsername),
-    );
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) throw new Error("Username is already taken");
+    const cleanEmail = email.toLowerCase().trim();
 
+    // 1. Create Firebase Auth user first so request.auth is populated
     const userCredential = await createUserWithEmailAndPassword(
       auth,
-      email.trim(),
+      cleanEmail,
       password,
     );
     const uid = userCredential.user.uid;
 
     const newProfile: UserProfile = {
       uid,
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       username: cleanUsername,
       displayName: displayName.trim(),
       photoURL: null,
       createdAt: new Date().toISOString(),
     };
 
-    await setDoc(doc(db, "users", uid), newProfile);
-    setProfile(newProfile);
+    try {
+      await setDoc(doc(db, "users", uid), newProfile);
+      setProfile(newProfile);
+    } catch (firestoreErr: any) {
+      console.error("Firestore user profile save error:", firestoreErr);
+      throw firestoreErr;
+    }
   };
 
   const loginWithGoogle = async (idToken: string) => {

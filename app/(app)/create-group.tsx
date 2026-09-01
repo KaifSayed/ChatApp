@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   ScrollView,
   StyleSheet,
@@ -135,6 +136,13 @@ export default function CreateGroupScreen() {
             onSubmitEditing={handleSearch}
             autoCapitalize="none"
           />
+          {loading && (
+            <ActivityIndicator
+              size="small"
+              color={theme.primary}
+              style={{ marginRight: 8 }}
+            />
+          )}
         </View>
 
         {selectedUsers.length > 0 && (

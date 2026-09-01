@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,7 +8,6 @@ import { useChat } from "../../../src/context/ChatContext";
 import { useTheme } from "../../../src/context/ThemeContext";
 
 export default function IncomingCallScreen() {
-  const router = useRouter();
   const { callerId } = useLocalSearchParams();
   const { answerCall, declineCall } = useCall();
   const { getUserProfile } = useChat();

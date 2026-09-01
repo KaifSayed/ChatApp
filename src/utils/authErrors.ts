@@ -30,11 +30,31 @@ export const handleAuthError = (
       case "auth/network-request-failed":
         message = "Network error. Please check your internet connection.";
         break;
+      case "permission-denied":
+        message =
+          "Database permission denied. Please publish your Firestore Security Rules in the Firebase Console.";
+        break;
       default:
-        message = error.message || message;
+        if (
+          error.message?.includes("Missing or insufficient permissions") ||
+          error.message?.includes("permission-denied")
+        ) {
+          message =
+            "Database permission denied. Please publish your Firestore Security Rules in the Firebase Console.";
+        } else {
+          message = error.message || message;
+        }
     }
   } else if (error?.message) {
-    message = error.message;
+    if (
+      error.message.includes("Missing or insufficient permissions") ||
+      error.message.includes("permission-denied")
+    ) {
+      message =
+        "Database permission denied. Please publish your Firestore Security Rules in the Firebase Console.";
+    } else {
+      message = error.message;
+    }
   }
 
   // Handle alert popups across Web, iOS, and Android

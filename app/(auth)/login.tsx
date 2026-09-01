@@ -57,7 +57,7 @@ export default function LoginScreen() {
       };
       performGoogleLogin();
     }
-  }, [response]);
+  }, [response, loginWithGoogle]);
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -167,7 +167,7 @@ export default function LoginScreen() {
             style={styles.link}
           >
             <Text style={{ color: theme.primary, fontWeight: "600" }}>
-              Don't have an account? Sign up
+              Don&apos;t have an account? Sign up
             </Text>
           </Pressable>
 

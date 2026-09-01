@@ -26,7 +26,7 @@ function RootLayoutNav() {
     } else if (user && inAuthGroup) {
       router.replace("/(app)/(tabs)" as any);
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, router]);
 
   if (loading) return <Loader />;
 
@@ -35,9 +35,9 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    registerForPushNotificationsAsync().then((token) =>
-      console.log("Push token:", token),
-    );
+    registerForPushNotificationsAsync().then((token) => {
+      if (token) console.log("Push token:", token);
+    });
   }, []);
 
   return (

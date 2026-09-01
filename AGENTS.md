@@ -212,6 +212,14 @@ A polished, responsive, modern, and user-friendly application with notifications
 
 ### Keep a track of everything in a "AGENTS.md".
 
-## Bug Fixes
+## Bug Fixes & Project Milestones
 - [x] Fixed `react-native-webrtc` web bundler issue by creating a platform-specific stub (`webrtc.web.ts`) to rely on standard browser WebRTC APIs, preventing Metro bundler crashes on `event-target-shim`.
 - [x] Installed missing `expo-device` package to resolve the `Unable to resolve module expo-device` Metro error inside `notifications.ts`.
+- [x] Aligned Expo SDK 54 versions (`expo@~54.0.37`, `expo-constants@~18.0.14`), achieving 100% pass rate on `npx expo-doctor` (18/18 checks passed).
+- [x] Resolved npm security vulnerabilities through package.json `overrides` targeting `postcss`, `nanoid`, `js-yaml`, `tar`, `undici`, `uuid`, `decode-uri-component`, `fast-uri` while maintaining full compatibility with `@expo/fingerprint` and EAS Build.
+- [x] Cleaned up code quality and ESLint issues across authentication, create-group, chat, and WebRTC calling modules (0 errors, 0 warnings).
+- [x] Configured Firebase Auth `getReactNativePersistence(AsyncStorage)` on native platforms to ensure persistent user sessions and eliminate initialization warnings.
+- [x] Hardened push notification service with proper error handling and developer guidance for Android FCM credentials.
+- [x] Fixed user registration and profile creation flow by authenticating via Firebase Auth prior to Firestore document write, and provided `firestore.rules` for project permissions.
+- [x] Implemented explicit Android runtime permission requests (`PermissionsAndroid.requestMultiple`) for microphone and camera in `CallContext.tsx` and declared required permissions in `app.json`.
+- [x] Generated comprehensive project review document `REVIEW.md` including full architectural roadmaps for the 4-tab navigation layout (`Chats`, `Notifications`, `Stories`, `Profile`), Public/Private 15s Ephemeral Stories (12h auto-expiry), and Ephemeral 10-Minute Chat File Sharing.

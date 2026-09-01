@@ -2,6 +2,8 @@
 
 # dependencies
 node_modules/
+server/node_modules/
+server/package-lock.json
 
 # Expo
 .expo/
@@ -41,3 +43,10 @@ app-example
 # generated native folders
 /ios
 /android
+
+AGENTS.md
+REVIEW.md
+CLAUDE.md
+
+package-lock.json
+firestore.rules

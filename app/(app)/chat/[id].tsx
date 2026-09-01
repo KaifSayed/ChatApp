@@ -61,7 +61,7 @@ export default function ActiveChatScreen() {
     });
 
     return unsubscribe;
-  }, [chatId]);
+  }, [chatId, markAsRead]);
 
   const handleSend = async () => {
     if (!inputText.trim()) return;

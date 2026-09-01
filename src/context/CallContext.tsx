@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert, Linking, PermissionsAndroid, Platform } from "react-native";
 import { getSocket, initSocket } from "../services/socket";
 import {
   mediaDevices,
@@ -243,6 +243,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
       socket.off("user-left");
       socket.off("call-ended");
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, localStream]);
 
   const addRemoteStream = (userId: string, stream: MediaStream) => {
@@ -271,6 +272,62 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
   const setupMedia = async (isVideo: boolean = true) => {
     console.log("[Media Setup] Requesting user media. Video enabled:", isVideo);
     if (typeof window === "undefined" && Platform.OS === "web") return null;
+
+    // Check if WebRTC mediaDevices module is available (requires dev build or web)
+    if (!mediaDevices || typeof mediaDevices.getUserMedia !== "function") {
+      console.warn(
+        "[Media Setup] Native WebRTC module not detected. Running inside Expo Go?",
+      );
+      displayAlert(
+        "Development Build Required",
+        "Audio and video calls require a custom Development Build (or Web browser) because native WebRTC is not included in standard Expo Go.",
+      );
+      return null;
+    }
+
+    // Android runtime permissions check & request
+    if (Platform.OS === "android") {
+      try {
+        const hasAudio = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        );
+        const hasCamera = isVideo
+          ? await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA)
+          : true;
+
+        if (!hasAudio || !hasCamera) {
+          const reqs: any[] = [];
+          if (!hasAudio) reqs.push(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+          if (!hasCamera) reqs.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+
+          console.log("[Media Setup] Requesting Android permissions:", reqs);
+          const res = await PermissionsAndroid.requestMultiple(reqs);
+          console.log("[Media Setup] Permission results:", res);
+
+          const audioGranted =
+            hasAudio ||
+            res[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
+              PermissionsAndroid.RESULTS.GRANTED;
+
+          if (!audioGranted) {
+            Alert.alert(
+              "Microphone Permission Required",
+              "ChatApp needs microphone access to make voice and video calls. Please enable it in your device settings.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Open Settings",
+                  onPress: () => Linking.openSettings(),
+                },
+              ],
+            );
+            return null;
+          }
+        }
+      } catch (permErr) {
+        console.warn("[Media Setup] Android permission error:", permErr);
+      }
+    }
 
     let stream: MediaStream | null = null;
     if (isVideo) {
@@ -301,9 +358,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({
           "[Media Setup Error] Critical failure acquiring audio:",
           err,
         );
-        displayAlert(
+        Alert.alert(
           "Permission Error",
-          "Unable to access microphone or camera.",
+          "Unable to access microphone or camera. Please grant permissions in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => Linking.openSettings(),
+            },
+          ],
         );
         return null;
       }

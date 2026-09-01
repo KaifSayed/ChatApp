@@ -8,6 +8,7 @@ let MediaStream: any = class {};
 let RTCView: any = () => null;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const webrtc = require("react-native-webrtc");
   mediaDevices = webrtc.mediaDevices;
   RTCPeerConnection = webrtc.RTCPeerConnection;
@@ -15,7 +16,7 @@ try {
   RTCIceCandidate = webrtc.RTCIceCandidate;
   MediaStream = webrtc.MediaStream;
   RTCView = webrtc.RTCView;
-} catch (e) {
+} catch {
   console.warn(
     "Native WebRTC module unavailable. (Are you running in standard Expo Go?). Video calling requires a Development Client.",
   );
