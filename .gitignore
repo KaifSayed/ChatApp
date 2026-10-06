@@ -49,5 +49,5 @@ AGENTS.md
 REVIEW.md
 CLAUDE.md
 
-package-lock.json
+eas.json
 firestore.rules
