@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "version": ">= 21.0.2",
@@ -6,13 +7,55 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDahk2MESfyyOxYJ2x98GumSnf2qZ-mScA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "chatapp-10app.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "chatapp-10app",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "chatapp-10app.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "622095260699",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:622095260699:web:70b50b9c608e6873a2acbe",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-8TK4VQD1YM"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDahk2MESfyyOxYJ2x98GumSnf2qZ-mScA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "chatapp-10app.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "chatapp-10app",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "chatapp-10app.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "622095260699",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:622095260699:web:70b50b9c608e6873a2acbe",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-8TK4VQD1YM"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDahk2MESfyyOxYJ2x98GumSnf2qZ-mScA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "chatapp-10app.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "chatapp-10app",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "chatapp-10app.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "622095260699",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:622095260699:web:70b50b9c608e6873a2acbe",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "622095260699-5hf5cfo8ldp3rl19kif7ft0sfjdqmced.apps.googleusercontent.com",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-8TK4VQD1YM"
+      }
     }
   },
   "submit": {

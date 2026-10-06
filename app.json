@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "my-app",
+    "name": "ChatApp",
     "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,7 +30,6 @@
         "android.permission.CHANGE_NETWORK_STATE",
         "android.permission.INTERNET"
       ],
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.myapp"
     },
@@ -40,6 +39,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
